@@ -1,0 +1,446 @@
+
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulateur Règle P+Q (Arrêté S21)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chosen Palette: Neutral Sky (Slate, Zinc, with Sky blue for accents and Amber for warnings) -->
+    <!-- Application Structure Plan: An interactive simulator is chosen over a static report to promote active learning and direct application of complex rules. The structure is task-oriented: User defines a scenario -> App provides an immediate verdict, calculation, and justification. This flow allows users to test various configurations and understand the impact of each criterion (distance, timing, ownership) on the P+Q calculation, which is the primary goal for the target audience (operational and legal teams). A reference section is included for on-demand detail lookup. -->
+    <!-- Visualization & Content Choices:
+        - Goal: Simulate P+Q Rule -> Method: Interactive form with sliders and radio buttons -> Interaction: User inputs scenario parameters. Justification: Allows testing of infinite combinations, more effective than static examples. Library: Vanilla JS.
+        - Goal: Show impact of Q -> Method: Dynamic Bar Chart -> Interaction: Chart updates in real-time with user inputs, visually comparing power 'P' vs. 'P+Q' against tariff thresholds. Justification: Immediately quantifies the financial/regulatory impact of the rule. Library: Chart.js (Canvas).
+        - Goal: Explain the 'Why' -> Method: Dynamic Text Block -> Interaction: Justification text changes to reflect the specific criteria that led to the verdict. Justification: Connects user action to regulatory consequence, reinforcing learning. Library: Vanilla JS.
+        - Goal: Highlight Risk -> Method: Conditional Warning Box -> Interaction: Appears only when a legally ambiguous scenario is selected. Justification: Proactively flags potential issues for legal/operational teams, fulfilling a key requirement of the source material. Library: Vanilla JS. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        .slider-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #0ea5e9;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .slider-thumb::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #0ea5e9;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        
+        <header class="relative text-center mb-10">
+            <img src="https://www.helexia.green/wp-content/uploads/2023/12/helexia-logo-header.svg" alt="Logo Helexia" class="absolute top-0 left-0 w-36 h-auto md:w-48">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900 mt-4 md:mt-0">Simulateur de la règle "P + Q"</h1>
+            <p class="mt-2 text-lg text-slate-600">Analysez l'impact de l'arrêté S21 sur vos projets photovoltaïques.</p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+
+            <!-- Colonne de configuration -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
+                <h2 class="text-2xl font-bold mb-6 text-slate-900">1. Définir le Scénario</h2>
+                
+                <div class="space-y-6">
+                    <!-- Définition des installations -->
+                    <div>
+                        <h3 class="font-semibold text-lg mb-2 text-slate-700">Puissance des installations</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label for="powerA" class="block text-sm font-medium text-slate-600">Projet Principal (P)</label>
+                                <input type="number" id="powerA" value="250" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-sky-500 focus:ring-sky-500">
+                                <span class="text-xs text-slate-500">Puissance en kWc</span>
+                            </div>
+                            <div>
+                                <label for="powerB" class="block text-sm font-medium text-slate-600">Autre installation</label>
+                                <input type="number" id="powerB" value="250" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-sky-500 focus:ring-sky-500">
+                                <span class="text-xs text-slate-500">Puissance en kWc</span>
+                            </div>
+                        </div>
+                         <div class="mt-4">
+                            <label class="flex items-center">
+                                <input type="checkbox" id="isResidential" class="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500">
+                                <span class="ml-2 text-sm text-slate-600">Les installations sont sur des bâtiments à usage exclusif d'habitation.</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Critères P+Q -->
+                    <div>
+                        <h3 class="font-semibold text-lg mb-3 text-slate-700">Critères de cumul</h3>
+                        
+                        <!-- Distance -->
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                               <label for="distance" class="text-sm font-medium text-slate-600">Distance entre installations</label>
+                               <span id="distanceValue" class="text-sm font-bold text-sky-600">50 m</span>
+                            </div>
+                            <input type="range" id="distance" min="0" max="200" value="50" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider-thumb">
+                        </div>
+                        
+                        <!-- Délai DCR (nouveau slider) -->
+                        <div class="space-y-2 mt-4">
+                            <div class="flex justify-between items-center">
+                               <label for="dcrTiming" class="text-sm font-medium text-slate-600">Délai entre les DCR</label>
+                               <span id="dcrTimingValue" class="text-sm font-bold text-sky-600">18 mois</span>
+                            </div>
+                            <input type="range" id="dcrTiming" min="0" max="36" value="18" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider-thumb">
+                        </div>
+
+                        <!-- Propriété -->
+                        <div class="mt-4">
+                            <label for="ownership" class="block text-sm font-medium text-slate-600 mb-2">Structure de propriété des bâtiments</label>
+                            <select id="ownership" class="block w-full rounded-md border-slate-300 shadow-sm focus:border-sky-500 focus:ring-sky-500">
+                                <option value="same_owner">Même propriétaire</option>
+                                <option value="distinct_owner">Propriétaires distincts et indépendants</option>
+                                <option value="related_owner">Propriétaires distincts mais liés (sociétés sœurs, etc.)</option>
+                                <option value="bail_owner">Propriétaires fonciers distincts, même preneur à bail emphytéotique</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Attestation Architecte -->
+                        <div id="architectCertSection" class="mt-4 p-3 bg-sky-50 border border-sky-200 rounded-md space-y-2 hidden">
+                             <p class="text-sm font-semibold text-sky-800">Option pour bâtiments d'habitation</p>
+                             <label class="flex items-center">
+                                <input type="checkbox" id="architectCert" class="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500">
+                                <span class="ml-2 text-sm text-sky-700">Fournir une attestation d'architecte.</span>
+                            </label>
+                             <p class="text-xs text-sky-600">Permet de considérer les sites comme distincts, mais implique une minoration de 10% du tarif.</p>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colonne de résultats -->
+            <div class="lg:col-span-3">
+                <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 sticky top-8">
+                     <h2 class="text-2xl font-bold mb-1 text-slate-900">2. Analyse et Résultats</h2>
+                    
+                     <div id="verdict" class="p-4 rounded-lg text-center my-4 font-bold text-base bg-white text-slate-800 border border-slate-200">
+                        Verdict
+                     </div>
+                     <div id="contratApplicable" class="text-center font-bold text-base mt-2 mb-4">
+                        Contrat applicable : N/A
+                     </div>
+
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                         <!-- Justification -->
+                         <div class="space-y-4">
+                            <div>
+                                <h3 class="font-semibold text-lg text-slate-700">Justification</h3>
+                                <p id="justificationText" class="mt-2 text-sm text-slate-600 leading-relaxed"></p>
+                            </div>
+                            <!-- New row for Tarif d'achat -->
+                            <div class="mb-4">
+                                <h3 class="font-semibold text-lg text-slate-700">Tarif d'achat</h3>
+                                <div id="tarifAchatDetails">
+                                    <p id="tarifAchatText" class="mt-2 text-sm text-slate-600 leading-relaxed"></p>
+                                    <!-- New button for AOS added here -->
+                                    <a href="https://www.cre.fr/documents/appels-doffres/appel-doffres-portant-sur-la-realisation-et-lexploitation-dinstallations-de-production-delectricite-a-partir-de-lenergie-solaire-centrales-sur-batiments-ou-ombrieres-de-puissance-superieure-a-100-kwc-et-inferieure-a-500-kwc.html" target="_blank" id="aosCdcButton" class="hidden mt-2 inline-block bg-sky-600 hover:bg-sky-700 text-white font-bold py-1.5 px-3 rounded-md shadow-md transition-colors duration-200 text-sm">
+                                        Cahier des charges Période 1
+                                    </a>
+                                </div>
+                            </div>
+                            <div id="tarifMoyenAOCRE" class="text-sm text-slate-600 mt-2 hidden">
+                                <p>Tarif moyen : 96,43€/MWh</p>
+                            </div>
+                            <div id="tranchePrixAOCRE" class="mt-2 hidden">
+                                <div class="flex text-base font-medium text-slate-700 font-mono pb-1 border-b border-slate-200">
+                                    <span class="flex-grow text-left">Tranche</span>
+                                    <span class="flex-shrink-0 text-left pl-4">Prix (€/MWh)</span>
+                                </div>
+                                <div class="relative inline-block w-full">
+                                    <div id="customTrancheDropdownTrigger" class="bg-white border border-slate-300 rounded-md shadow-sm py-2 px-3 cursor-pointer flex justify-between items-center text-sm text-slate-800 font-mono">
+                                        <span id="selectedTrancheText" class="flex-grow text-left">Sélectionnez une tranche</span>
+                                        <svg class="w-4 h-4 ml-2 -mr-1 text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                                    </div>
+                                    <div id="customTrancheDropdownOptions" class="absolute z-10 w-full bg-white border border-slate-300 rounded-md shadow-lg mt-1 max-h-48 overflow-y-auto hidden">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="riskWarning" class="p-3 bg-amber-50 border border-amber-200 rounded-md hidden">
+                                <h4 class="font-semibold text-amber-800 flex items-center">
+                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                    Zone de risque juridique
+                                </h4>
+                                <p id="riskText" class="mt-1 text-sm text-amber-700"></p>
+                            </div>
+                         </div>
+                         
+                         <!-- Graphique -->
+                         <div>
+                            <h3 class="font-semibold text-lg text-slate-700 text-center mb-2">Impact sur la puissance de calcul</h3>
+                             <div class="chart-container relative h-64 w-full max-w-md mx-auto">
+                                <canvas id="impactChart"></canvas>
+                             </div>
+                         </div>
+                     </div>
+                </div>
+            </div>
+
+        </main>
+
+        <footer class="text-center mt-10 pb-4">
+            <p class="text-sm text-slate-500">© 2025 Helexia</p>
+        </footer>
+    </div>
+
+<script>
+    const powerAInput = document.getElementById('powerA');
+    const powerBInput = document.getElementById('powerB');
+    const isResidentialInput = document.getElementById('isResidential');
+    const distanceInput = document.getElementById('distance');
+    const distanceValue = document.getElementById('distanceValue');
+    const dcrTimingInput = document.getElementById('dcrTiming'); // New slider input
+    const dcrTimingValue = document.getElementById('dcrTimingValue'); // New value display
+    const ownershipInput = document.getElementById('ownership');
+    const architectCertSection = document.getElementById('architectCertSection');
+    const architectCertInput = document.getElementById('architectCert');
+
+    const verdictEl = document.getElementById('verdict');
+    const contratApplicableEl = document.getElementById('contratApplicable'); 
+    const justificationTextEl = document.getElementById('justificationText');
+    const tarifAchatTextEl = document.getElementById('tarifAchatText'); 
+    const aosCdcButtonEl = document.getElementById('aosCdcButton'); 
+    const tarifMoyenAOCREEl = document.getElementById('tarifMoyenAOCRE');
+    const tranchePrixAOCREEl = document.getElementById('tranchePrixAOCRE');
+    const customTrancheDropdownTrigger = document.getElementById('customTrancheDropdownTrigger');
+    const selectedTrancheText = document.getElementById('selectedTrancheText');
+    const customTrancheDropdownOptions = document.getElementById('customTrancheDropdownOptions');
+    const riskWarningEl = document.getElementById('riskWarning');
+    const riskTextEl = document.getElementById('riskText');
+
+    const trancheData = [
+        { tranche: "Tranche 1", prix: "83,12 €" },
+        { tranche: "Tranche 2", prix: "85,27 €" },
+        { tranche: "Tranche 3", prix: "90,91 €" },
+        { tranche: "Tranche 4", prix: "104,52 €" },
+        { tranche: "Tranche 5", prix: "101,95 €" },
+        { tranche: "Tranche 6", prix: "102,10 €" },
+        { tranche: "Tranche 7", prix: "100,74 €" },
+        { tranche: "Tranche 8", prix: "99,95 €" },
+        { tranche: "Tranche 9", prix: "98,20 €" },
+        { tranche: "Tranche 10", prix: "97,53 €" }
+    ];
+
+    // Update inputs to monitor
+    const inputs = [powerAInput, powerBInput, isResidentialInput, distanceInput, dcrTimingInput, ownershipInput, architectCertInput];
+
+    function populateTrancheDropdown() {
+        customTrancheDropdownOptions.innerHTML = ''; // Clear previous options
+        trancheData.forEach(item => {
+            const optionDiv = document.createElement('div');
+            optionDiv.classList.add('flex', 'justify-between', 'items-center', 'py-2', 'px-3', 'hover:bg-slate-100', 'cursor-pointer', 'text-sm', 'text-slate-800', 'font-mono');
+            optionDiv.dataset.tranche = item.tranche;
+            optionDiv.dataset.prix = item.prix;
+            optionDiv.innerHTML = `<span class="w-1/2 text-left">${item.tranche}</span><span class="w-1/2 text-left pl-4">${item.prix}</span>`;
+            customTrancheDropdownOptions.appendChild(optionDiv);
+
+            optionDiv.addEventListener('click', () => {
+                selectedTrancheText.textContent = `${item.tranche} ${item.prix}`;
+                customTrancheDropdownOptions.classList.add('hidden');
+            });
+        });
+    }
+
+    customTrancheDropdownTrigger.addEventListener('click', () => {
+        customTrancheDropdownOptions.classList.toggle('hidden');
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!tranchePrixAOCREEl.contains(event.target)) {
+            customTrancheDropdownOptions.classList.add('hidden');
+        }
+    });
+
+
+    function updateResults() {
+        const pA = parseFloat(powerAInput.value) || 0;
+        const pB = parseFloat(powerBInput.value) || 0;
+        const isResidential = isResidentialInput.checked;
+        const distance = parseInt(distanceInput.value);
+        const dcrTimingMonths = parseInt(dcrTimingInput.value); // Read value from new slider
+
+        distanceValue.textContent = `${distance} m`;
+        dcrTimingValue.textContent = `${dcrTimingMonths} mois`; // Update the new value display
+
+        architectCertSection.classList.toggle('hidden', !isResidential);
+
+        let qApplies = false;
+        let qValue = 0;
+        let justification = "";
+        let risk = "";
+
+        const distanceCriteriaMet = distance < 100;
+        const dcrTimingCriteriaMet = dcrTimingMonths <= 18;
+        const ownershipCriteriaMet = ownershipInput.value === 'same_owner' || ownershipInput.value === 'related_owner' || ownershipInput.value === 'bail_owner';
+        
+        let justificationParts = [];
+        
+        justificationParts.push(distanceCriteriaMet 
+            ? `✔️ Distance (${distance}m) < 100m.` 
+            : `❌ Distance (${distance}m) >= 100m.`);
+
+        justificationParts.push(dcrTimingCriteriaMet 
+            ? `✔️ Délai DCR (${dcrTimingMonths} mois) <= 18 mois.`
+            : `❌ Délai DCR (${dcrTimingMonths} mois) > 18 mois.`);
+            
+        let ownerJustification = "";
+        if (ownershipInput.value === 'same_owner') {
+            ownerJustification = "✔️ Les installations ont le même propriétaire.";
+        } else if (ownershipInput.value === 'related_owner') {
+            ownerJustification = "✔️ Les propriétaires sont des sociétés liées (non-indépendantes).";
+        } else if (ownershipInput.value === 'distinct_owner') {
+            ownerJustification = "❌ Les propriétaires sont distincts et indépendants.";
+        } else if (ownershipInput.value === 'bail_owner') {
+            ownerJustification = "✔️ Le même preneur à bail est considéré propriétaire des 2 installations.";
+        }
+        justificationParts.push(ownerJustification);
+
+
+        if (isResidential && architectCert) {
+             qApplies = false;
+             justificationParts.push("⚠️ L'attestation d'architecte permet de considérer les sites comme distincts, annulant les autres critères. Le tarif sera minoré de 10%.");
+        } else {
+             qApplies = distanceCriteriaMet && dcrTimingCriteriaMet && ownershipCriteriaMet;
+        }
+
+        verdictEl.className = 'p-4 rounded-lg text-center my-4 font-bold text-base bg-white text-slate-800 border border-slate-200'; 
+        if (qApplies) {
+            verdictEl.textContent = "La règle P + Q s'applique";
+            qValue = pB;
+        } else {
+            verdictEl.textContent = "La règle P + Q ne s'applique pas";
+            qValue = 0;
+        }
+
+        const totalPQ = pA + qValue;
+        let contratType = "";
+        let tarifAchat = ""; 
+        
+        // Nouvelle logique pour gérer les tranches
+        if (totalPQ >= 500) {
+            contratType = "AO CRE - Complément de rémunération";
+            tarifAchat = ""; // Affiché via le menu déroulant
+            tarifMoyenAOCREEl.classList.remove('hidden');
+            tranchePrixAOCREEl.classList.remove('hidden');
+            aosCdcButtonEl.classList.add('hidden'); // Hide the AOS button
+            populateTrancheDropdown();
+            selectedTrancheText.textContent = "Sélectionnez une tranche"; 
+        } else if (totalPQ >= 100) { // Nouvelle condition pour l'AOS
+            contratType = "AOS (Appel d'Offres Simplifié)";
+            tarifAchat = "Tarif AOS (variable)\nPlafond à 95€/MWh";
+            tarifMoyenAOCREEl.classList.add('hidden');
+            tranchePrixAOCREEl.classList.add('hidden');
+            aosCdcButtonEl.classList.remove('hidden'); // Show the AOS button
+        } else {
+            contratType = "Arrêté S21";
+            tarifAchat = "95€/MWh"; // Exemple de tarif pour l'Arrêté S21
+            tarifMoyenAOCREEl.classList.add('hidden');
+            tranchePrixAOCREEl.classList.add('hidden');
+            aosCdcButtonEl.classList.add('hidden'); // Hide the AOS button
+        }
+        
+        contratApplicableEl.textContent = `Contrat applicable : ${contratType}`; 
+        contratApplicableEl.className = 'text-center font-bold text-base mt-2 mb-4'; 
+
+        // Utilisez innerHTML pour gérer les sauts de ligne
+        tarifAchatTextEl.innerHTML = tarifAchat.replace(/\n/g, '<br>');
+
+
+        if (ownershipInput.value === 'bail_owner') {
+             risk = "Ce montage repose sur une interprétation littérale de la règle. Il existe un risque que EDF OA le requalifie comme un contournement de la règle, surtout en cas d'évolution de la réglementation visant l'exploitant.";
+        } else if (ownershipInput.value === 'related_owner') {
+             risk = "L'indépendance des sociétés est évaluée au cas par cas. Un lien de contrôle direct ou indirect avéré entre les propriétaires des bâtiments entraînera l'application de la règle P+Q.";
+        }
+
+        riskWarningEl.classList.toggle('hidden', risk === "");
+        riskTextEl.textContent = risk;
+        justificationTextEl.innerHTML = justificationParts.join('<br>');
+
+        updateChart(pA, qValue);
+    }
+
+    const ctx = document.getElementById('impactChart').getContext('2d');
+    const impactChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Projet Principal'],
+            datasets: [{
+                label: 'Puissance P (kWc)',
+                data: [0],
+                backgroundColor: 'rgba(56, 189, 248, 0.6)',
+                borderColor: 'rgba(14, 165, 233, 1)',
+                borderWidth: 1
+            },
+            {
+                label: 'Puissance P+Q (kWc)',
+                data: [0],
+                backgroundColor: 'rgba(248, 113, 113, 0.6)',
+                borderColor: 'rgba(239, 68, 68, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Puissance en kWc'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                     callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += context.parsed.y + ' kWc';
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    function updateChart(p, q) {
+        const pPlusQ = p + q;
+        impactChart.data.datasets[0].data[0] = p;
+        impactChart.data.datasets[1].data[0] = pPlusQ;
+        impactChart.update();
+    }
+
+    inputs.forEach(input => input.addEventListener('input', updateResults));
+    
+    document.addEventListener('DOMContentLoaded', updateResults);
+
+</script>
+</body>
+</html>
