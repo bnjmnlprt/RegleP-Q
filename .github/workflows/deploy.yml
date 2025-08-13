@@ -1,0 +1,43 @@
+# Nom du workflow qui apparaîtra dans l'onglet "Actions"
+name: Deploy to GitHub Pages
+
+# Déclencheur : cette action se lance uniquement quand une release est publiée
+on:
+  release:
+    types: [published]
+
+# Tâches à effectuer
+jobs:
+  build-and-deploy:
+    # Utilise une machine virtuelle Ubuntu pour exécuter les tâches
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      # Étape 1: Récupère le code de votre dépôt
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Étape 2: Configure l'environnement GitHub Pages
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      # Étape 3: Construit le site (transforme votre code en site web)
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./
+          destination: ./_site
+
+      # Étape 4: Prépare le site construit pour le déploiement
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./_site
+
+      # Étape 5: Déploie le site sur GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
